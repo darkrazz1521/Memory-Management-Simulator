@@ -49,6 +49,10 @@ function MemoryMessage({ message }) {
 }
 
 function ControlPanel({
+  title = "Memory Control Panel",
+  eyebrow = "Simulation Console",
+  sections = ["paging", "segmentation", "allocation"],
+  showPlayback = true,
   config,
   errors,
   playback,
@@ -64,6 +68,9 @@ function ControlPanel({
 }) {
   const [processId, setProcessId] = useState("P3");
   const [processSize, setProcessSize] = useState(6);
+  const showPaging = sections.includes("paging");
+  const showSegmentation = sections.includes("segmentation");
+  const showAllocation = sections.includes("allocation");
 
   const handleAllocate = () => {
     onAllocateProcess({ processId, size: processSize });
@@ -78,9 +85,9 @@ function ControlPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/80">
-            Simulation Console
+            {eyebrow}
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-white">Memory Control Panel</h2>
+          <h2 className="mt-1 text-xl font-semibold text-white">{title}</h2>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -93,18 +100,20 @@ function ControlPanel({
             Run
           </button>
 
-          <button
-            type="button"
-            onClick={onTogglePlayback}
-            className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
-          >
-            {playback.autoPlay ? (
-              <Pause className="h-4 w-4" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-            {playback.autoPlay ? "Pause" : "Resume"}
-          </button>
+          {showPlayback && (
+            <button
+              type="button"
+              onClick={onTogglePlayback}
+              className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+            >
+              {playback.autoPlay ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              {playback.autoPlay ? "Pause" : "Play"}
+            </button>
+          )}
 
           <button
             type="button"
@@ -132,6 +141,7 @@ function ControlPanel({
       )}
 
       <div className="mt-6 space-y-6">
+        {showPaging && (
         <section className="border-t border-white/10 pt-6">
           <SectionTitle
             icon={Cpu}
@@ -220,7 +230,9 @@ function ControlPanel({
             />
           </label>
         </section>
+        )}
 
+        {showSegmentation && (
         <section className="border-t border-white/10 pt-6">
           <SectionTitle
             icon={Layers}
@@ -274,13 +286,29 @@ function ControlPanel({
             </label>
           </div>
         </section>
+        )}
 
+        {showAllocation && (
         <section className="border-t border-white/10 pt-6">
           <SectionTitle
             icon={HardDrive}
             title="Memory Manager"
             detail="Allocate and release contiguous RAM blocks"
           />
+
+          <label className="mt-4 block space-y-2">
+            <span className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+              Memory Size
+            </span>
+            <input
+              type="number"
+              min="16"
+              max="128"
+              value={config.memorySize}
+              onChange={(event) => onConfigChange("memorySize", event.target.value)}
+              className={fieldClassName}
+            />
+          </label>
 
           <div className="mt-4 flex items-center justify-between text-sm text-slate-300">
             <span>
@@ -351,6 +379,7 @@ function ControlPanel({
             <MemoryMessage message={memoryMessage} />
           </div>
         </section>
+        )}
       </div>
     </aside>
   );
