@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity,
   Cpu,
@@ -16,36 +17,42 @@ const SPEED_OPTIONS = [
   { label: "Fast", value: 420 },
 ];
 
+const surfaceClass =
+  "premium-surface rounded-2xl border backdrop-blur";
+
 function PlaybackButton({ title, onClick, children }) {
   return (
-    <button
+    <motion.button
       type="button"
       title={title}
       aria-label={title}
+      whileHover={{ y: -1 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/5 text-slate-100 transition hover:bg-white/10"
+      className="premium-outline-button inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-100 transition"
     >
       {children}
-    </button>
+    </motion.button>
   );
 }
 
-function Metric({ label, value, accent = "text-slate-100" }) {
+function Metric({ label, value, accent = "text-stone-100" }) {
   return (
-    <div>
-      <div className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
-        {label}
-      </div>
+    <motion.div
+      layout
+      className="premium-subsurface rounded-2xl px-4 py-3"
+    >
+      <div className="text-xs text-premium-muted">{label}</div>
       <div className={`mt-1 text-lg font-semibold ${accent}`}>{value}</div>
-    </div>
+    </motion.div>
   );
 }
 
 function ReferenceTrace({ referenceString, stepIndex }) {
   return (
     <div>
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-200">
-        <Activity className="h-4 w-4 text-cyan-300" />
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-stone-200">
+        <Activity className="h-4 w-4 text-premium-accent" />
         Reference Trace
       </div>
       <div className="overflow-x-auto pb-2">
@@ -53,19 +60,22 @@ function ReferenceTrace({ referenceString, stepIndex }) {
           {referenceString.map((page, index) => {
             const active = index === stepIndex;
             const visited = index < stepIndex;
+
             return (
-              <div
+              <motion.div
                 key={`${page}-${index}`}
-                className={`flex h-11 min-w-11 items-center justify-center rounded-md border px-3 text-sm font-semibold transition-all duration-300 ${
+                layout
+                whileHover={{ y: -2 }}
+                className={`flex h-11 min-w-11 items-center justify-center rounded-xl border px-3 text-sm font-semibold ${
                   active
-                    ? "border-cyan-400/70 bg-cyan-400/15 text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.16)]"
+                    ? "border-white/[0.16] bg-[rgba(120,196,179,0.16)] text-slate-50 shadow-[0_16px_28px_rgba(120,196,179,0.14)]"
                     : visited
-                      ? "border-white/10 bg-white/5 text-slate-300"
-                      : "border-white/10 bg-slate-900 text-slate-500"
+                      ? "premium-subsurface text-slate-300"
+                      : "premium-subsurface-soft text-slate-500"
                 }`}
               >
                 {page}
-              </div>
+              </motion.div>
             );
           })}
         </div>
@@ -77,41 +87,67 @@ function ReferenceTrace({ referenceString, stepIndex }) {
 function FrameGrid({ currentStep }) {
   return (
     <div>
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-200">
-        <Cpu className="h-4 w-4 text-cyan-300" />
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-stone-200">
+        <Cpu className="h-4 w-4 text-premium-accent" />
         RAM Frames
       </div>
 
-      <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))" }}
-      >
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {currentStep.frames.map((page, index) => {
           const inserted = currentStep.insertedFrameIndex === index;
           const replaced = currentStep.replacedFrameIndex === index;
 
           return (
-            <div
+            <motion.div
               key={`${index}-${page ?? "empty"}`}
-              className={`relative aspect-square min-h-[96px] rounded-md border px-3 py-2 transition-all duration-300 ${
+              layout
+              initial={false}
+              animate={
+                inserted && currentStep.pageFault
+                  ? {
+                      y: [0, -2, 0],
+                      boxShadow: [
+                        "0 0 0 rgba(0,0,0,0)",
+                        "0 0 0 1px rgba(199, 95, 95, 0.22), 0 12px 30px rgba(125, 40, 40, 0.16)",
+                        "0 0 0 rgba(0,0,0,0)",
+                      ],
+                    }
+                  : {
+                      y: 0,
+                      boxShadow: "0 0 0 rgba(0,0,0,0)",
+                    }
+              }
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              className={`relative aspect-square min-h-[96px] rounded-2xl border px-3 py-3 ${
                 page === null
-                  ? "border-white/10 bg-slate-900 text-slate-500"
+                  ? "premium-subsurface-soft text-slate-500"
                   : inserted && currentStep.pageFault
-                    ? "border-rose-400/60 bg-rose-500/15 text-rose-50 shadow-[0_0_28px_rgba(244,63,94,0.18)]"
-                    : "border-cyan-400/25 bg-cyan-400/10 text-cyan-50"
+                    ? "border-rose-300/24 bg-[rgba(213,138,154,0.12)] text-rose-50 shadow-[0_18px_36px_rgba(213,138,154,0.12)]"
+                    : "premium-subsurface text-slate-50"
               }`}
             >
+              <AnimatePresence>
+                {inserted && currentStep.pageFault && (
+                  <motion.span
+                    key={`pulse-${currentStep.step}-${index}`}
+                    initial={{ opacity: 0.7, scale: 0.88 }}
+                    animate={{ opacity: 0, scale: 1.14 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+                    className="pointer-events-none absolute inset-0 rounded-2xl border border-[rgba(120,196,179,0.28)]"
+                  />
+                )}
+              </AnimatePresence>
+
               {replaced && (
-                <span className="absolute right-2 top-2 rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-950">
-                  swap
+                <span className="status-warn absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px]">
+                  replaced
                 </span>
               )}
 
-              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">
-                Frame {index}
-              </div>
-              <div className="mt-3 text-3xl font-semibold">{page ?? "--"}</div>
-            </div>
+              <div className="text-[11px] text-premium-muted">Frame {index}</div>
+              <div className="mt-4 text-3xl font-semibold">{page ?? "--"}</div>
+            </motion.div>
           );
         })}
       </div>
@@ -126,43 +162,56 @@ function DecisionRail({ currentStep, result, stepIndex }) {
   return (
     <div className="space-y-6">
       <div>
-        <div className="mb-3 text-sm font-semibold text-slate-200">
+        <div className="mb-3 text-sm font-semibold text-stone-200">
           Current Decision
         </div>
-        <div className="rounded-md border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
-          <p>{currentStep.action}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span
-              className={`rounded-full px-3 py-1 ${
-                currentStep.pageFault
-                  ? "bg-rose-500/15 text-rose-100"
-                  : "bg-emerald-500/15 text-emerald-100"
-              }`}
-            >
-              {currentStep.pageFault ? "Page Fault" : "Page Hit"}
-            </span>
-
-            {currentStep.replaced !== null && (
-              <span className="rounded-full bg-amber-400/15 px-3 py-1 text-amber-100">
-                Replaced {currentStep.replaced}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`${currentStep.step}-${currentStep.currentPage}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="premium-subsurface-soft rounded-2xl p-4 text-sm text-slate-300"
+          >
+            <p>{currentStep.action}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span
+                className={`rounded-full px-3 py-1 ${
+                  currentStep.pageFault
+                    ? "status-danger"
+                    : "status-success"
+                }`}
+              >
+                {currentStep.pageFault ? "Page Fault" : "Page Hit"}
               </span>
-            )}
-          </div>
-        </div>
+
+              {currentStep.replaced !== null && (
+                <span className="status-warn rounded-full px-3 py-1">
+                  Replaced {currentStep.replaced}
+                </span>
+              )}
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      <div className="border-t border-white/10 pt-6">
-        <div className="mb-3 text-sm font-semibold text-slate-200">
+      <div className="border-t border-white/[0.08] pt-6">
+        <div className="mb-3 text-sm font-semibold text-stone-200">
           Recent Steps
         </div>
         <div className="space-y-2">
-          {visibleSteps.map((step) => (
-            <div
+          {visibleSteps.map((step, index) => (
+            <motion.div
               key={step.step}
-              className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm ${
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, delay: index * 0.03 }}
+              whileHover={{ x: 2 }}
+              className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm ${
                 step.step === currentStep.step
-                  ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-50"
-                  : "border-white/10 bg-white/5 text-slate-300"
+                  ? "border-white/[0.16] bg-[rgba(120,196,179,0.14)] text-slate-50"
+                  : "premium-subsurface text-slate-300"
               }`}
             >
               <span>Step {step.step}</span>
@@ -170,32 +219,33 @@ function DecisionRail({ currentStep, result, stepIndex }) {
               <span className={step.pageFault ? "text-rose-200" : "text-emerald-200"}>
                 {step.pageFault ? "Fault" : "Hit"}
               </span>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
 
-      <div className="border-t border-white/10 pt-6">
-        <div className="mb-3 text-sm font-semibold text-slate-200">
+      <div className="border-t border-white/[0.08] pt-6">
+        <div className="mb-3 text-sm font-semibold text-stone-200">
           Frame Metadata
         </div>
         <div className="grid gap-2">
           {currentStep.frameMeta.map((meta, index) => (
-            <div
+            <motion.div
               key={`${meta.page ?? "empty"}-${index}`}
-              className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300"
+              layout
+              className="premium-subsurface-soft rounded-xl px-3 py-2.5 text-sm text-slate-300"
             >
               Frame {index}:{" "}
-              <span className="font-semibold text-white">{meta.page ?? "--"}</span>
+              <span className="font-semibold text-slate-50">{meta.page ?? "--"}</span>
               {meta.nextUse !== null && (
-                <span className="ml-2 text-slate-400">
+                <span className="ml-2 text-premium-muted">
                   next {meta.nextUse === -1 ? "never" : meta.nextUse + 1}
                 </span>
               )}
               {meta.lastUsed !== null && (
-                <span className="ml-2 text-slate-400">last {meta.lastUsed + 1}</span>
+                <span className="ml-2 text-premium-muted">last {meta.lastUsed + 1}</span>
               )}
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -206,23 +256,25 @@ function DecisionRail({ currentStep, result, stepIndex }) {
 function PagePile({ title, icon: Icon, pages, tone }) {
   return (
     <div>
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-200">
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-stone-200">
         <Icon className={`h-4 w-4 ${tone}`} />
         {title}
       </div>
       <div className="flex flex-wrap gap-2">
         {pages.length === 0 ? (
-          <div className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-500">
+          <div className="premium-subsurface-soft rounded-xl px-3 py-2 text-sm text-slate-500">
             Empty
           </div>
         ) : (
           pages.map((page) => (
-            <div
+            <motion.div
               key={`${title}-${page}`}
-              className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-100 transition-all duration-300"
+              layout
+              whileHover={{ y: -2 }}
+              className="premium-subsurface premium-interactive rounded-xl px-3 py-2 text-sm font-semibold text-slate-100"
             >
               {page}
-            </div>
+            </motion.div>
           ))
         )}
       </div>
@@ -236,50 +288,59 @@ function VirtualMemoryPanel({ currentStep, result }) {
   return (
     <div className="space-y-6">
       <div>
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-200">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-stone-200">
           <HardDrive className="h-4 w-4 text-amber-300" />
           Page Movement
         </div>
 
-        <div className="rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
-          {movement.type === "hit" ? (
-            <span>Page {currentStep.currentPage} is served directly from RAM.</span>
-          ) : movement.type === "swap" ? (
-            <span>
-              Page {currentStep.currentPage} moves from Disk to RAM and page{" "}
-              {currentStep.replaced} returns to Disk.
-            </span>
-          ) : (
-            <span>Page {currentStep.currentPage} loads from Disk into RAM.</span>
-          )}
-        </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`${movement.type}-${currentStep.step}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="premium-subsurface-soft rounded-2xl px-4 py-3 text-sm text-slate-300"
+          >
+            {movement.type === "hit" ? (
+              <span>Page {currentStep.currentPage} is served directly from RAM.</span>
+            ) : movement.type === "swap" ? (
+              <span>
+                Page {currentStep.currentPage} moves from Disk to RAM and page{" "}
+                {currentStep.replaced} returns to Disk.
+              </span>
+            ) : (
+              <span>Page {currentStep.currentPage} loads from Disk into RAM.</span>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      <div className="border-t border-white/10 pt-6">
+      <div className="border-t border-white/[0.08] pt-6">
         <PagePile
           title="RAM Resident Set"
           icon={Cpu}
           pages={currentStep.ramPages ?? []}
-          tone="text-cyan-300"
+          tone="text-premium-accent"
         />
       </div>
 
-      <div className="border-t border-white/10 pt-6">
+      <div className="border-t border-white/[0.08] pt-6">
         <PagePile
           title="Disk Pages"
           icon={HardDrive}
           pages={currentStep.diskPages ?? []}
-          tone="text-amber-300"
+          tone="text-premium-gold"
         />
       </div>
 
-      <div className="border-t border-white/10 pt-6">
+      <div className="border-t border-white/[0.08] pt-6">
         <div className="grid gap-4 md:grid-cols-2">
-          <Metric label="Hits" value={currentStep.hitCount} accent="text-emerald-200" />
+          <Metric label="Hits" value={currentStep.hitCount} accent="text-emerald-100" />
           <Metric
             label="Swaps"
             value={result.replacements.length}
-            accent="text-amber-200"
+            accent="text-amber-100"
           />
         </div>
       </div>
@@ -342,13 +403,11 @@ function Visualizer({
       };
 
   return (
-    <section className="rounded-lg border border-white/10 bg-slate-950/80 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur">
+    <section className={`${surfaceClass} p-5`}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/80">
-            {copy.eyebrow}
-          </p>
-          <h2 className="mt-1 text-xl font-semibold text-white">{copy.title}</h2>
+          <p className="text-xs text-premium-muted">{copy.eyebrow}</p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-50">{copy.title}</h2>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -395,41 +454,45 @@ function Visualizer({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 border-t border-white/10 pt-5 md:grid-cols-4">
-        <Metric label="Algorithm" value={result.algorithm} accent="text-cyan-200" />
+      <div className="mt-5 grid gap-4 border-t border-white/[0.08] pt-5 md:grid-cols-4">
+        <Metric label="Algorithm" value={result.algorithm} accent="text-stone-50" />
         <Metric label="Step" value={`${currentStep.step} / ${steps.length}`} />
         <Metric
           label="Current Page"
           value={currentStep.currentPage}
-          accent={currentStep.pageFault ? "text-rose-200" : "text-emerald-200"}
+          accent={currentStep.pageFault ? "text-rose-100" : "text-emerald-100"}
         />
-        <Metric label="Faults" value={currentStep.faultCount} accent="text-amber-200" />
+        <Metric label="Faults" value={currentStep.faultCount} accent="text-amber-100" />
       </div>
 
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-amber-300 to-rose-400 transition-[width] duration-300"
-          style={{ width: `${progress}%` }}
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.05]">
+        <motion.div
+          initial={false}
+          animate={{ width: `${progress}%` }}
+          transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+          className="h-full rounded-full bg-[linear-gradient(90deg,var(--accent),var(--gold))]"
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-5">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
         <div className="flex flex-wrap items-center gap-2">
           {SPEED_OPTIONS.map((option) => {
             const active = speed === option.value;
             return (
-              <button
+              <motion.button
                 key={option.label}
                 type="button"
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.99 }}
                 onClick={() => setSpeed(option.value)}
-                className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] transition ${
+                className={`rounded-xl border px-3 py-1.5 text-xs ${
                   active
-                    ? "border-cyan-400/70 bg-cyan-400/15 text-cyan-100"
-                    : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                    ? "border-white/[0.16] bg-[rgba(120,196,179,0.14)] text-slate-50 shadow-[0_16px_28px_rgba(120,196,179,0.12)]"
+                    : "premium-outline-button text-slate-300"
                 }`}
               >
                 {option.label}
-              </button>
+              </motion.button>
             );
           })}
         </div>
@@ -438,15 +501,15 @@ function Visualizer({
           <span
             className={`rounded-full px-3 py-1 ${
               currentStep.pageFault
-                ? "bg-rose-500/15 text-rose-100"
-                : "bg-emerald-500/15 text-emerald-100"
+                ? "status-danger"
+                : "status-success"
             }`}
           >
             {currentStep.pageFault ? "Page Fault" : "Page Hit"}
           </span>
 
           {currentStep.replaced !== null && (
-            <span className="rounded-full bg-amber-400/15 px-3 py-1 text-amber-100">
+            <span className="status-warn rounded-full px-3 py-1">
               Replaced {currentStep.replaced}
             </span>
           )}

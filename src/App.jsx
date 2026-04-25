@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   Activity,
   CheckCircle2,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Cpu,
   GitCompareArrows,
   HardDrive,
@@ -15,6 +19,7 @@ import ComparisonView from "./components/ComparisonView";
 import Charts from "./components/Charts";
 import MemoryAllocationView from "./components/MemoryAllocationView";
 import SegmentationView from "./components/SegmentationView";
+import TheoryPanel from "./components/TheoryPanel";
 import MemoryManager from "./core/memoryManager";
 import {
   comparePagingAlgorithms,
@@ -30,6 +35,8 @@ import {
 import { simulateVirtualMemory } from "./core/virtualMemory";
 
 const DEFAULT_MEMORY_SIZE = 48;
+const SURFACE_CLASS =
+  "premium-surface rounded-2xl border backdrop-blur";
 
 const DEFAULT_CONFIG = {
   frameCount: "4",
@@ -47,7 +54,7 @@ const LAB_VIEWS = [
     id: "overview",
     label: "Overview",
     icon: LayoutDashboard,
-    caption: "Run snapshot",
+    caption: "Run summary",
   },
   {
     id: "paging",
@@ -77,7 +84,7 @@ const LAB_VIEWS = [
     id: "segmentation",
     label: "Segmentation",
     icon: Layers,
-    caption: "Address translation",
+    caption: "Address map",
   },
   {
     id: "allocation",
@@ -86,6 +93,27 @@ const LAB_VIEWS = [
     caption: "RAM blocks",
   },
 ];
+
+const pageTransition = {
+  initial: { opacity: 0, y: 18, scale: 0.988, filter: "blur(10px)" },
+  animate: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+  exit: { opacity: 0, y: -14, scale: 0.994, filter: "blur(8px)" },
+  transition: { duration: 0.38, ease: [0.16, 1, 0.3, 1] },
+};
+
+const staggerList = {
+  animate: {
+    transition: {
+      staggerChildren: 0.06,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const itemTransition = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.24 } },
+};
 
 function normalizeMemorySize(value) {
   const parsed = Number.parseInt(value, 10);
@@ -160,6 +188,10 @@ function buildSimulation(config) {
 }
 
 function getInitialView() {
+  if (typeof window === "undefined") {
+    return "overview";
+  }
+
   const hash = window.location.hash.replace("#", "");
   return LAB_VIEWS.some((view) => view.id === hash) ? hash : "overview";
 }
@@ -168,72 +200,240 @@ function SummaryStat({ stat }) {
   const Icon = stat.icon;
 
   return (
-    <div className="rounded-md border border-white/10 bg-white/5 px-4 py-3">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
-        <Icon className="h-4 w-4 text-cyan-300" />
+    <motion.div
+      variants={itemTransition}
+      whileHover={{ y: -3, scale: 1.01 }}
+      className="premium-subsurface premium-interactive rounded-2xl px-4 py-4"
+    >
+      <div className="flex items-center gap-2 text-xs text-premium-muted">
+        <Icon className="h-4 w-4 text-premium-accent" />
         {stat.label}
       </div>
-      <div className={`mt-2 text-2xl font-semibold ${stat.tone}`}>
-        {stat.value}
-      </div>
-    </div>
+      <div className={`mt-2 text-2xl font-semibold ${stat.tone}`}>{stat.value}</div>
+    </motion.div>
   );
 }
 
-function LabNavigation({ activeView, onViewChange }) {
+function SidebarItem({ collapsed, active, view, onViewChange }) {
+  const Icon = view.icon;
+
   return (
-    <nav className="rounded-lg border border-white/10 bg-slate-950/80 p-2 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur">
-      <div className="flex gap-2 overflow-x-auto pb-1">
+    <motion.button
+      type="button"
+      layout
+      title={view.label}
+      onClick={() => onViewChange(view.id)}
+      whileHover={{ x: 1.5 }}
+      whileTap={{ scale: 0.985 }}
+      className="relative flex w-full items-center gap-3 overflow-hidden rounded-lg px-3 py-3 text-left"
+    >
+      {active && (
+        <motion.span
+          layoutId="active-sidebar-indicator"
+          className="absolute inset-0 rounded-xl border border-white/[0.14] bg-[rgba(120,196,179,0.12)]"
+          transition={{ type: "spring", stiffness: 320, damping: 30 }}
+        />
+      )}
+
+      <span
+        className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+          active
+            ? "border-white/[0.16] bg-[rgba(120,196,179,0.12)] text-slate-50"
+            : "premium-subsurface-soft text-premium-muted"
+        }`}
+      >
+        <Icon className="h-4 w-4" />
+      </span>
+
+      {!collapsed && (
+        <span className="relative z-10 min-w-0">
+          <span
+            className={`block truncate text-sm ${
+              active ? "font-semibold text-slate-50" : "text-slate-300"
+            }`}
+          >
+            {view.label}
+          </span>
+          <span className="block truncate text-xs text-premium-muted">
+            {view.caption}
+          </span>
+        </span>
+      )}
+    </motion.button>
+  );
+}
+
+function DesktopSidebar({
+  activeView,
+  collapsed,
+  currentAlgorithm,
+  currentFaults,
+  onToggle,
+  onViewChange,
+}) {
+  return (
+    <motion.aside
+      initial={false}
+      animate={{ width: collapsed ? 94 : 280 }}
+      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      className={`${SURFACE_CLASS} sticky top-4 hidden h-[calc(100vh-2rem)] flex-col xl:flex`}
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-4">
+        {!collapsed ? (
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-premium-muted">
+              Memory Simulator
+            </div>
+            <div className="mt-1 text-sm font-semibold text-slate-50">
+              Control Workspace
+            </div>
+          </div>
+        ) : (
+          <div className="premium-subsurface-soft flex h-10 w-10 items-center justify-center rounded-xl text-slate-200">
+            <LayoutDashboard className="h-4 w-4" />
+          </div>
+        )}
+
+        <motion.button
+          type="button"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={onToggle}
+          className="premium-outline-button inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-200 transition"
+        >
+          {collapsed ? (
+            <ChevronsRight className="h-4 w-4" />
+          ) : (
+            <ChevronsLeft className="h-4 w-4" />
+          )}
+        </motion.button>
+      </div>
+
+      <LayoutGroup>
+        <div className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          {LAB_VIEWS.map((view) => (
+            <SidebarItem
+              key={view.id}
+              collapsed={collapsed}
+              active={activeView === view.id}
+              view={view}
+              onViewChange={onViewChange}
+            />
+          ))}
+        </div>
+      </LayoutGroup>
+
+      <div className="border-t border-white/[0.08] px-3 py-4">
+        <div className="premium-subsurface rounded-xl px-3 py-3">
+          <div className="text-[11px] text-premium-muted">
+            {collapsed ? "Run" : "Active Run"}
+          </div>
+          {!collapsed ? (
+            <>
+              <div className="mt-2 text-sm font-semibold text-slate-50">
+                {currentAlgorithm}
+              </div>
+              <div className="mt-1 text-xs text-premium-muted">
+                {currentFaults} page faults
+              </div>
+            </>
+          ) : (
+            <div className="mt-2 text-sm font-semibold text-slate-50">
+              {currentFaults}
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.aside>
+  );
+}
+
+function MobileNavigation({ activeView, onViewChange }) {
+  return (
+    <div className="overflow-x-auto xl:hidden">
+      <div className="flex min-w-max gap-2 pb-1">
         {LAB_VIEWS.map((view) => {
           const Icon = view.icon;
           const active = activeView === view.id;
 
           return (
-            <button
+            <motion.button
               key={view.id}
               type="button"
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.985 }}
               onClick={() => onViewChange(view.id)}
-              className={`flex min-w-[156px] items-center gap-3 rounded-md border px-3 py-3 text-left transition ${
+              className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
                 active
-                  ? "border-cyan-400/50 bg-cyan-400/15 text-cyan-50"
-                  : "border-transparent bg-transparent text-slate-300 hover:border-white/10 hover:bg-white/5"
+                  ? "border-white/[0.16] bg-[rgba(120,196,179,0.14)] text-slate-50"
+                  : "premium-subsurface text-slate-300"
               }`}
             >
-              <span
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border ${
-                  active
-                    ? "border-cyan-300/40 bg-cyan-300/15"
-                    : "border-white/10 bg-white/5"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold">
-                  {view.label}
-                </span>
-                <span className="block truncate text-xs text-slate-500">
-                  {view.caption}
-                </span>
-              </span>
-            </button>
+              <Icon className="h-4 w-4" />
+              {view.label}
+            </motion.button>
           );
         })}
       </div>
-    </nav>
+    </div>
   );
 }
 
-function PageShell({ children }) {
-  return <div className="animate-[surface-in_260ms_ease-out]">{children}</div>;
+function TopBar({ currentView, currentAlgorithm, currentFaults }) {
+  return (
+    <header className={`${SURFACE_CLASS} sticky top-4 z-20 px-4 py-4`}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-premium-muted">
+            Memory Management Simulator
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h1 className="text-lg font-semibold text-slate-50">
+              {currentView.label}
+            </h1>
+            <span className="text-sm text-premium-muted">{currentView.caption}</span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+          <motion.div whileHover={{ y: -1 }} className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-[rgba(139,200,180,0.12)] px-3 py-1.5">
+            <Activity className="h-3.5 w-3.5 text-emerald-300" />
+            Ready
+          </motion.div>
+          <motion.div whileHover={{ y: -1 }} className="premium-subsurface inline-flex items-center gap-2 rounded-full px-3 py-1.5">
+            <Cpu className="h-3.5 w-3.5 text-premium-accent" />
+            {currentAlgorithm}
+          </motion.div>
+          <motion.div whileHover={{ y: -1 }} className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-[rgba(210,186,134,0.14)] px-3 py-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-amber-300" />
+            {currentFaults} faults
+          </motion.div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function PageShell({ viewId, children }) {
+  return (
+    <motion.div key={viewId} {...pageTransition}>
+      {children}
+    </motion.div>
+  );
 }
 
 function SplitPage({ controls, children }) {
   return (
-    <main className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-      {controls}
-      <div className="min-w-0">{children}</div>
-    </main>
+    <div className="mt-4">
+      <div className="grid gap-6 xl:grid-cols-[332px_minmax(0,1fr)] 2xl:grid-cols-[348px_minmax(0,1fr)] xl:items-start">
+        <div className="xl:sticky xl:top-24 xl:self-start">
+          {controls}
+        </div>
+        <div className="min-w-0">
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -241,87 +441,89 @@ function OverviewView({ simulation, memorySnapshot, onViewChange }) {
   const finalFrames = simulation.paging.finalFrames.map((frame) => frame ?? "--");
 
   return (
-    <PageShell>
-      <section className="rounded-lg border border-white/10 bg-slate-950/80 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur">
+    <div className="space-y-6">
+      <motion.section
+        variants={staggerList}
+        initial="initial"
+        animate="animate"
+        className={`${SURFACE_CLASS} p-5`}
+      >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/80">
-              Lab Workspace
-            </p>
-            <h2 className="mt-1 text-xl font-semibold text-white">
+            <p className="text-xs text-premium-muted">Workspace</p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-50">
               Memory Management Modules
             </h2>
           </div>
 
-          <div className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-100">
-            Current run is ready
+          <div className="status-success rounded-full px-3 py-1.5 text-sm">
+            Current run ready
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <motion.div
+          variants={staggerList}
+          className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+        >
           {LAB_VIEWS.filter((view) => view.id !== "overview").map((view) => {
             const Icon = view.icon;
             return (
-              <button
+              <motion.button
                 key={view.id}
+                variants={itemTransition}
                 type="button"
+                whileHover={{ y: -4, scale: 1.012 }}
+                whileTap={{ scale: 0.992 }}
                 onClick={() => onViewChange(view.id)}
-                className="group rounded-md border border-white/10 bg-white/5 p-4 text-left transition hover:-translate-y-0.5 hover:border-cyan-400/35 hover:bg-cyan-400/10"
+                className="premium-subsurface premium-interactive group rounded-2xl p-4 text-left"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-slate-950/60 text-cyan-200 transition group-hover:border-cyan-300/40">
-                    <Icon className="h-5 w-5" />
+                  <span className="premium-subsurface-soft flex h-10 w-10 items-center justify-center rounded-xl text-slate-200">
+                    <Icon className="h-4 w-4" />
                   </span>
-                  <span className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                    Open
-                  </span>
+                  <ChevronRight className="h-4 w-4 text-premium-muted transition group-hover:text-premium-accent" />
                 </div>
-                <h3 className="mt-4 text-lg font-semibold text-white">{view.label}</h3>
-                <p className="mt-1 text-sm text-slate-400">{view.caption}</p>
-              </button>
+                <div className="mt-5 text-base font-semibold text-slate-50">
+                  {view.label}
+                </div>
+                <div className="mt-1 text-sm text-premium-muted">{view.caption}</div>
+              </motion.button>
             );
           })}
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="rounded-lg border border-white/10 bg-slate-950/80 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/80">
-            Current Run
-          </p>
-          <h2 className="mt-1 text-xl font-semibold text-white">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <motion.section
+          {...itemTransition}
+          className={`${SURFACE_CLASS} p-5`}
+        >
+          <p className="text-xs text-premium-muted">Current Run</p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-50">
             Paging Snapshot
           </h2>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-md border border-white/10 bg-white/5 p-4">
-              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                Algorithm
-              </div>
-              <div className="mt-2 text-2xl font-semibold text-cyan-100">
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="premium-subsurface rounded-2xl p-4">
+              <div className="text-xs text-premium-muted">Algorithm</div>
+              <div className="mt-2 text-2xl font-semibold text-slate-50">
                 {simulation.paging.algorithm}
               </div>
             </div>
-            <div className="rounded-md border border-white/10 bg-white/5 p-4">
-              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                Faults
-              </div>
+            <div className="premium-subsurface rounded-2xl p-4">
+              <div className="text-xs text-premium-muted">Faults</div>
               <div className="mt-2 text-2xl font-semibold text-amber-100">
                 {simulation.paging.pageFaults}
               </div>
             </div>
-            <div className="rounded-md border border-white/10 bg-white/5 p-4">
-              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                Hits
-              </div>
+            <div className="premium-subsurface rounded-2xl p-4">
+              <div className="text-xs text-premium-muted">Hits</div>
               <div className="mt-2 text-2xl font-semibold text-emerald-100">
                 {simulation.paging.hits}
               </div>
             </div>
-            <div className="rounded-md border border-white/10 bg-white/5 p-4">
-              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                References
-              </div>
+            <div className="premium-subsurface rounded-2xl p-4">
+              <div className="text-xs text-premium-muted">References</div>
               <div className="mt-2 text-2xl font-semibold text-slate-100">
                 {simulation.paging.totalReferences}
               </div>
@@ -329,77 +531,77 @@ function OverviewView({ simulation, memorySnapshot, onViewChange }) {
           </div>
 
           <div className="mt-6">
-            <div className="mb-3 text-sm font-semibold text-slate-200">
-              Final Frames
-            </div>
-            <div
-              className="grid gap-2"
-              style={{
-                gridTemplateColumns: `repeat(${finalFrames.length}, minmax(0, 1fr))`,
-              }}
-            >
+            <div className="text-sm font-semibold text-slate-200">Final Frames</div>
+            <div className="mt-3 flex flex-wrap gap-2">
               {finalFrames.map((frame, index) => (
-                <div
+                <motion.div
                   key={`${frame}-${index}`}
-                  className="rounded-md border border-cyan-400/25 bg-cyan-400/10 px-3 py-4 text-center text-lg font-semibold text-cyan-50"
+                  layout
+                  whileHover={{ y: -2 }}
+                  className="premium-subsurface rounded-2xl px-4 py-4 text-center text-lg font-semibold text-slate-50"
                 >
                   {frame}
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
-        </div>
+        </motion.section>
 
-        <div className="rounded-lg border border-white/10 bg-slate-950/80 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/80">
-            Physical Memory
-          </p>
-          <h2 className="mt-1 text-xl font-semibold text-white">
+        <motion.section
+          {...itemTransition}
+          className={`${SURFACE_CLASS} p-5`}
+        >
+          <p className="text-xs text-premium-muted">Physical Memory</p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-50">
             Allocation Health
           </h2>
-          <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/5">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400"
-              style={{
-                width: `${Math.max(
-                  4,
-                  memorySnapshot.usage.utilization * 100,
-                )}%`,
+
+          <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/[0.05]">
+            <motion.div
+              initial={false}
+              animate={{
+                width: `${Math.max(4, memorySnapshot.usage.utilization * 100)}%`,
               }}
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              className="h-full rounded-full bg-[linear-gradient(90deg,var(--accent),var(--gold))]"
             />
           </div>
+
           <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-md border border-white/10 bg-white/5 p-3">
+            <div className="premium-subsurface rounded-2xl p-4">
               Used{" "}
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-stone-50">
                 {memorySnapshot.usage.usedCells}
               </span>
             </div>
-            <div className="rounded-md border border-white/10 bg-white/5 p-3">
+            <div className="premium-subsurface rounded-2xl p-4">
               Free{" "}
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-stone-50">
                 {memorySnapshot.usage.freeCells}
               </span>
             </div>
           </div>
-          <button
+
+          <motion.button
             type="button"
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.99 }}
             onClick={() => onViewChange("allocation")}
-            className="mt-5 w-full rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+            className="premium-outline-button mt-5 w-full rounded-2xl px-4 py-2.5 text-sm text-slate-100 transition"
           >
             Open Allocation
-          </button>
-        </div>
-      </section>
-    </PageShell>
+          </motion.button>
+        </motion.section>
+      </div>
+    </div>
   );
 }
 
 function DisabledPanel({ title }) {
   return (
-    <section className="rounded-lg border border-white/10 bg-slate-950/80 p-6 text-slate-300 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur">
-      <h2 className="text-xl font-semibold text-white">{title}</h2>
-      <p className="mt-2 text-sm text-slate-400">
+    <section className={`${SURFACE_CLASS} p-6`}>
+      <h2 className="text-xl font-semibold text-slate-50">{title}</h2>
+      <p className="mt-2 text-sm text-premium-muted">
         Enable comparison mode in the paging controls to show this page.
       </p>
     </section>
@@ -408,6 +610,7 @@ function DisabledPanel({ title }) {
 
 function App() {
   const [activeView, setActiveView] = useState(getInitialView);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [simulation, setSimulation] = useState(() => buildSimulation(DEFAULT_CONFIG));
   const [errors, setErrors] = useState([]);
@@ -429,6 +632,11 @@ function App() {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
+
+  const currentView = useMemo(
+    () => LAB_VIEWS.find((item) => item.id === activeView) ?? LAB_VIEWS[0],
+    [activeView],
+  );
 
   const segmentOptions = useMemo(() => {
     try {
@@ -574,21 +782,19 @@ function App() {
     {
       label: "Frames",
       value: simulation.frameCount,
-      tone: "text-cyan-100",
+      tone: "text-stone-50",
       icon: Cpu,
     },
     {
       label: "Disk Pages",
       value: simulation.virtualMemory.totalPagesOnDisk,
-      tone: "text-orange-100",
+      tone: "text-stone-200",
       icon: HardDrive,
     },
   ];
 
-  const view = LAB_VIEWS.find((item) => item.id === activeView) ?? LAB_VIEWS[0];
-
   const renderView = () => {
-    if (view.id === "overview") {
+    if (currentView.id === "overview") {
       return (
         <OverviewView
           simulation={simulation}
@@ -598,19 +804,19 @@ function App() {
       );
     }
 
-    if (view.id === "paging") {
+    if (currentView.id === "paging") {
       return (
-        <PageShell>
-          <SplitPage
-            controls={
-              <ControlPanel
-                {...controlProps}
-                title="Paging Inputs"
-                eyebrow="Paging Console"
-                sections={["paging"]}
-              />
-            }
-          >
+        <SplitPage
+          controls={
+            <ControlPanel
+              {...controlProps}
+              title="Paging Inputs"
+              eyebrow="Paging Console"
+              sections={["paging"]}
+            />
+          }
+        >
+          <div className="space-y-6">
             <Visualizer
               key={`paging-${simulation.paging.algorithm}-${simulation.frameCount}-${simulation.references.join("|")}`}
               result={simulation.paging}
@@ -619,24 +825,25 @@ function App() {
               onPlaybackChange={handlePlaybackChange}
               mode="paging"
             />
-          </SplitPage>
-        </PageShell>
+            <TheoryPanel viewId={currentView.id} />
+          </div>
+        </SplitPage>
       );
     }
 
-    if (view.id === "virtual") {
+    if (currentView.id === "virtual") {
       return (
-        <PageShell>
-          <SplitPage
-            controls={
-              <ControlPanel
-                {...controlProps}
-                title="Virtual Memory Inputs"
-                eyebrow="Virtual Console"
-                sections={["paging"]}
-              />
-            }
-          >
+        <SplitPage
+          controls={
+            <ControlPanel
+              {...controlProps}
+              title="Virtual Memory Inputs"
+              eyebrow="Virtual Console"
+              sections={["paging"]}
+            />
+          }
+        >
+          <div className="space-y-6">
             <Visualizer
               key={`virtual-${simulation.paging.algorithm}-${simulation.frameCount}-${simulation.references.join("|")}`}
               result={simulation.paging}
@@ -645,130 +852,196 @@ function App() {
               onPlaybackChange={handlePlaybackChange}
               mode="virtual"
             />
-          </SplitPage>
-        </PageShell>
+            <TheoryPanel viewId={currentView.id} />
+          </div>
+        </SplitPage>
       );
     }
 
-    if (view.id === "comparison") {
+    if (currentView.id === "comparison") {
       return (
-        <PageShell>
-          <SplitPage
-            controls={
-              <ControlPanel
-                {...controlProps}
-                title="Comparison Inputs"
-                eyebrow="Algorithm Console"
-                sections={["paging"]}
-                showPlayback={false}
-              />
-            }
-          >
+        <SplitPage
+          controls={
+            <ControlPanel
+              {...controlProps}
+              title="Comparison Inputs"
+              eyebrow="Algorithm Console"
+              sections={["paging"]}
+              showPlayback={false}
+            />
+          }
+        >
+          <div className="space-y-6">
             {config.comparisonMode ? (
               <ComparisonView comparison={simulation.comparison} />
             ) : (
               <DisabledPanel title="Comparison Mode Disabled" />
             )}
-          </SplitPage>
-        </PageShell>
+            <TheoryPanel viewId={currentView.id} />
+          </div>
+        </SplitPage>
       );
     }
 
-    if (view.id === "analytics") {
+    if (currentView.id === "analytics") {
       return (
-        <PageShell>
-          <SplitPage
-            controls={
-              <ControlPanel
-                {...controlProps}
-                title="Analytics Inputs"
-                eyebrow="Chart Console"
-                sections={["paging"]}
-                showPlayback={false}
-              />
-            }
-          >
+        <SplitPage
+          controls={
+            <ControlPanel
+              {...controlProps}
+              title="Analytics Inputs"
+              eyebrow="Chart Console"
+              sections={["paging"]}
+              showPlayback={false}
+            />
+          }
+        >
+          <div className="space-y-6">
             {config.comparisonMode ? (
               <Charts result={simulation.paging} comparison={simulation.comparison} />
             ) : (
               <DisabledPanel title="Analytics Require Comparison Mode" />
             )}
-          </SplitPage>
-        </PageShell>
+            <TheoryPanel viewId={currentView.id} />
+          </div>
+        </SplitPage>
       );
     }
 
-    if (view.id === "segmentation") {
+    if (currentView.id === "segmentation") {
       return (
-        <PageShell>
-          <SplitPage
-            controls={
-              <ControlPanel
-                {...controlProps}
-                title="Segmentation Inputs"
-                eyebrow="Address Console"
-                sections={["segmentation"]}
-                showPlayback={false}
-              />
-            }
-          >
-            <SegmentationView
-              segments={simulation.segments}
-              translation={simulation.translation}
-            />
-          </SplitPage>
-        </PageShell>
-      );
-    }
-
-    return (
-      <PageShell>
         <SplitPage
           controls={
             <ControlPanel
               {...controlProps}
-              title="Allocation Inputs"
-              eyebrow="RAM Console"
-              sections={["allocation"]}
+              title="Segmentation Inputs"
+              eyebrow="Address Console"
+              sections={["segmentation"]}
               showPlayback={false}
             />
           }
         >
-          <MemoryAllocationView memorySnapshot={memorySnapshot} />
+          <div className="space-y-6">
+            <SegmentationView
+              segments={simulation.segments}
+              translation={simulation.translation}
+            />
+            <TheoryPanel viewId={currentView.id} />
+          </div>
         </SplitPage>
-      </PageShell>
+      );
+    }
+
+    return (
+      <SplitPage
+        controls={
+          <ControlPanel
+            {...controlProps}
+            title="Allocation Inputs"
+            eyebrow="RAM Console"
+            sections={["allocation"]}
+            showPlayback={false}
+          />
+        }
+      >
+        <div className="space-y-6">
+          <MemoryAllocationView memorySnapshot={memorySnapshot} />
+          <TheoryPanel viewId={currentView.id} />
+        </div>
+      </SplitPage>
     );
   };
 
   return (
-    <div className="min-h-screen bg-[#05070b] text-slate-100">
-      <div className="mx-auto flex max-w-[1480px] flex-col gap-6 px-4 py-5 lg:px-6">
-        <header className="rounded-lg border border-white/10 bg-slate-950/80 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div className="max-w-3xl">
-              <p className="text-xs font-medium uppercase tracking-[0.24em] text-cyan-300/80">
-                Operating Systems Lab
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold text-white">
-                Memory Management Simulator & Visualizer
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-                Paging, segmentation, virtual memory, and allocation are split into
-                focused lab pages.
-              </p>
+    <div className="app-shell min-h-screen bg-[var(--bg-0)] text-slate-100">
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
+        <motion.div
+          className="absolute inset-x-[-10%] top-24 h-px bg-[linear-gradient(90deg,transparent,rgba(120,196,179,0.32),transparent)]"
+          animate={{ x: ["-6%", "6%", "-6%"], opacity: [0.16, 0.45, 0.16] }}
+          transition={{ duration: 14, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute inset-x-[-10%] top-[58%] h-px bg-[linear-gradient(90deg,transparent,rgba(210,186,134,0.28),transparent)]"
+          animate={{ x: ["8%", "-8%", "8%"], opacity: [0.08, 0.28, 0.08] }}
+          transition={{ duration: 18, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+        />
+      </div>
+
+      <div className="mx-auto flex max-w-[1600px] gap-6 px-4 py-4 lg:px-6">
+        <DesktopSidebar
+          activeView={currentView.id}
+          collapsed={sidebarCollapsed}
+          currentAlgorithm={simulation.paging.algorithm}
+          currentFaults={simulation.paging.pageFaults}
+          onToggle={() => setSidebarCollapsed((current) => !current)}
+          onViewChange={handleViewChange}
+        />
+
+        <div className="min-w-0 flex-1">
+          <TopBar
+            currentView={currentView}
+            currentAlgorithm={simulation.paging.algorithm}
+            currentFaults={simulation.paging.pageFaults}
+          />
+
+          {currentView.id === "overview" ? (
+            <motion.section
+              variants={staggerList}
+              initial="initial"
+              animate="animate"
+              className={`${SURFACE_CLASS} mt-4 p-5`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-5">
+                <div className="max-w-3xl">
+                  <p className="text-xs text-premium-muted">Operating Systems Lab</p>
+                  <h2 className="mt-1 text-2xl font-semibold text-slate-50">
+                    Memory Management Simulator
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-premium-muted">
+                    Paging, segmentation, virtual memory, and allocation presented
+                    in a quieter dashboard shell.
+                  </p>
+                </div>
+
+                <motion.div
+                  variants={staggerList}
+                  className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+                >
+                  {summaryStats.map((stat) => (
+                    <SummaryStat key={stat.label} stat={stat} />
+                  ))}
+                </motion.div>
+              </div>
+
+              <div className="mt-5">
+                <MobileNavigation
+                  activeView={currentView.id}
+                  onViewChange={handleViewChange}
+                />
+              </div>
+            </motion.section>
+          ) : (
+            <div className="mt-4 xl:hidden">
+              <MobileNavigation
+                activeView={currentView.id}
+                onViewChange={handleViewChange}
+              />
             </div>
+          )}
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {summaryStats.map((stat) => (
-                <SummaryStat key={stat.label} stat={stat} />
-              ))}
-            </div>
-          </div>
-        </header>
-
-        <LabNavigation activeView={view.id} onViewChange={handleViewChange} />
-
-        {renderView()}
+          <AnimatePresence mode="wait" initial={false}>
+            <PageShell viewId={currentView.id}>
+              {currentView.id === "overview" ? (
+                <div className="space-y-6">
+                  {renderView()}
+                  <TheoryPanel viewId={currentView.id} />
+                </div>
+              ) : (
+                renderView()
+              )}
+            </PageShell>
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );

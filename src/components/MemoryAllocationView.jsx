@@ -1,13 +1,17 @@
+import { motion } from "framer-motion";
 import { Boxes, Cpu, MemoryStick } from "lucide-react";
 
 const PROCESS_COLORS = [
-  { background: "rgba(34, 197, 94, 0.18)", border: "rgba(34, 197, 94, 0.65)" },
-  { background: "rgba(59, 130, 246, 0.18)", border: "rgba(59, 130, 246, 0.65)" },
-  { background: "rgba(249, 115, 22, 0.18)", border: "rgba(249, 115, 22, 0.65)" },
-  { background: "rgba(234, 179, 8, 0.18)", border: "rgba(234, 179, 8, 0.65)" },
-  { background: "rgba(236, 72, 153, 0.18)", border: "rgba(236, 72, 153, 0.65)" },
-  { background: "rgba(20, 184, 166, 0.18)", border: "rgba(20, 184, 166, 0.65)" },
+  { background: "rgba(142, 155, 125, 0.16)", border: "rgba(142, 155, 125, 0.44)" },
+  { background: "rgba(184, 150, 114, 0.14)", border: "rgba(184, 150, 114, 0.42)" },
+  { background: "rgba(165, 137, 137, 0.14)", border: "rgba(165, 137, 137, 0.4)" },
+  { background: "rgba(130, 138, 154, 0.14)", border: "rgba(130, 138, 154, 0.38)" },
+  { background: "rgba(118, 148, 140, 0.14)", border: "rgba(118, 148, 140, 0.4)" },
+  { background: "rgba(173, 165, 140, 0.14)", border: "rgba(173, 165, 140, 0.4)" },
 ];
+
+const surfaceClass =
+  "premium-surface rounded-2xl border backdrop-blur";
 
 function hashLabel(label) {
   return [...String(label)].reduce(
@@ -19,49 +23,36 @@ function hashLabel(label) {
 function colorForProcess(processId) {
   if (!processId) {
     return {
-      background: "rgba(15, 23, 42, 0.92)",
-      border: "rgba(148, 163, 184, 0.15)",
+      background: "rgba(17, 16, 14, 0.92)",
+      border: "rgba(255,255,255,0.08)",
     };
   }
 
   return PROCESS_COLORS[hashLabel(processId) % PROCESS_COLORS.length];
 }
 
-function Metric({ label, value, accent = "text-slate-100" }) {
+function Metric({ label, value, accent = "text-stone-100" }) {
   return (
-    <div className="rounded-md border border-white/10 bg-white/5 p-4">
-      <div className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
-        {label}
-      </div>
+    <div className="premium-subsurface rounded-2xl p-4">
+      <div className="text-xs text-premium-muted">{label}</div>
       <div className={`mt-2 text-2xl font-semibold ${accent}`}>{value}</div>
     </div>
   );
 }
 
 function MemoryAllocationView({ memorySnapshot }) {
-  const gridColumns =
-    memorySnapshot.totalMemory > 96
-      ? 16
-      : memorySnapshot.totalMemory > 64
-        ? 12
-        : memorySnapshot.totalMemory > 36
-          ? 10
-          : 8;
-
   return (
-    <section className="rounded-lg border border-white/10 bg-slate-950/80 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur">
+    <section className={`${surfaceClass} p-5`}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/80">
-            Allocation Lab
-          </p>
-          <h2 className="mt-1 text-xl font-semibold text-white">
+          <p className="text-xs text-premium-muted">Allocation Lab</p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-50">
             Contiguous RAM Allocation
           </h2>
         </div>
 
-        <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200">
-          <MemoryStick className="h-4 w-4 text-emerald-300" />
+        <div className="premium-subsurface inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm text-slate-200">
+          <MemoryStick className="h-4 w-4 text-premium-accent" />
           {memorySnapshot.totalMemory} cells
         </div>
       </div>
@@ -75,7 +66,7 @@ function MemoryAllocationView({ memorySnapshot }) {
         <Metric
           label="Free Cells"
           value={memorySnapshot.usage.freeCells}
-          accent="text-cyan-100"
+          accent="text-stone-100"
         />
         <Metric
           label="Utilization"
@@ -85,31 +76,28 @@ function MemoryAllocationView({ memorySnapshot }) {
       </div>
 
       <div className="mt-6">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-200">
-          <Cpu className="h-4 w-4 text-cyan-300" />
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-stone-200">
+          <Cpu className="h-4 w-4 text-premium-accent" />
           Physical Memory Grid
         </div>
 
-        <div
-          className="grid gap-1"
-          style={{
-            gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
-          }}
-        >
+        <div className="grid grid-cols-8 gap-1 sm:grid-cols-10 lg:grid-cols-12 2xl:grid-cols-16">
           {memorySnapshot.memory.map((cell, index) => {
             const color = colorForProcess(cell);
             return (
-              <div
+              <motion.div
                 key={`${cell ?? "free"}-${index}`}
+                layout
+                whileHover={{ scale: 1.04 }}
                 title={`Cell ${index}: ${cell ?? "Free"}`}
-                className="flex aspect-square min-h-[36px] items-center justify-center rounded-[4px] border text-[10px] font-semibold text-slate-100 transition-transform duration-300 hover:-translate-y-0.5"
+                className="flex aspect-square min-h-[36px] items-center justify-center rounded-[4px] border text-[10px] font-semibold text-stone-100"
                 style={{
                   backgroundColor: color.background,
                   borderColor: color.border,
                 }}
               >
                 {cell ?? index}
-              </div>
+              </motion.div>
             );
           })}
         </div>
@@ -118,29 +106,33 @@ function MemoryAllocationView({ memorySnapshot }) {
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-200">
-            <Boxes className="h-4 w-4 text-amber-300" />
+            <Boxes className="h-4 w-4 text-premium-gold" />
             Memory Blocks
           </div>
           <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
-            {memorySnapshot.blocks.map((block) => {
+            {memorySnapshot.blocks.map((block, index) => {
               const color = colorForProcess(block.processId);
               return (
-                <article
+                <motion.article
                   key={`${block.label}-${block.start}`}
-                  className="rounded-md border p-3"
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: index * 0.03 }}
+                  className="rounded-lg border p-3"
                   style={{
                     backgroundColor: color.background,
                     borderColor: color.border,
                   }}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="font-semibold text-white">{block.label}</div>
-                    <div className="text-xs text-slate-300">{block.size} cells</div>
+                    <div className="font-semibold text-stone-50">{block.label}</div>
+                    <div className="text-xs text-stone-400">{block.size} cells</div>
                   </div>
-                  <div className="mt-2 text-xs text-slate-300">
+                  <div className="mt-2 text-xs text-stone-400">
                     Range {block.start}-{block.end}
                   </div>
-                </article>
+                </motion.article>
               );
             })}
           </div>
@@ -152,25 +144,29 @@ function MemoryAllocationView({ memorySnapshot }) {
           </div>
           <div className="space-y-2">
             {memorySnapshot.processes.length === 0 ? (
-              <div className="rounded-md border border-white/10 bg-white/5 p-4 text-sm text-slate-400">
+              <div className="premium-subsurface-soft rounded-2xl p-4 text-sm text-premium-muted">
                 No processes are allocated.
               </div>
             ) : (
-              memorySnapshot.processes.map((process) => (
-                <div
+              memorySnapshot.processes.map((process, index) => (
+                <motion.div
                   key={process.processId}
-                  className="rounded-md border border-white/10 bg-white/5 p-3 text-sm"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: index * 0.03 }}
+                  whileHover={{ y: -2 }}
+                  className="premium-subsurface premium-interactive rounded-2xl p-3 text-sm"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="font-semibold text-white">
+                    <span className="font-semibold text-stone-50">
                       {process.processId}
                     </span>
-                    <span className="text-slate-300">{process.size} cells</span>
+                    <span className="text-premium-muted">{process.size} cells</span>
                   </div>
-                  <div className="mt-2 text-xs text-slate-400">
+                  <div className="mt-2 text-xs text-premium-muted">
                     Start {process.start} | End {process.end}
                   </div>
-                </div>
+                </motion.div>
               ))
             )}
           </div>

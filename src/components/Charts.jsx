@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import {
   Bar,
   BarChart,
@@ -11,10 +12,12 @@ import {
   YAxis,
 } from "recharts";
 
-const BEST_COLOR = "#22c55e";
-const DEFAULT_BAR_COLOR = "#f97316";
-const LINE_COLOR = "#22d3ee";
-const HIT_COLOR = "#34d399";
+const BEST_COLOR = "#8e9b7d";
+const DEFAULT_BAR_COLOR = "#c7a974";
+const LINE_COLOR = "#7fd0bd";
+const HIT_COLOR = "#c8d6ec";
+const surfaceClass =
+  "premium-surface rounded-2xl border backdrop-blur";
 
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) {
@@ -22,15 +25,15 @@ function CustomTooltip({ active, payload, label }) {
   }
 
   return (
-    <div className="rounded-md border border-white/10 bg-slate-950/95 px-3 py-2 text-xs text-slate-100 shadow-xl">
-      <div className="mb-1 font-semibold text-cyan-100">{label}</div>
+    <div className="premium-subsurface-soft rounded-xl px-3 py-2 text-xs text-slate-100 shadow-xl">
+      <div className="mb-1 font-semibold text-slate-50">{label}</div>
       {payload.map((entry) => (
         <div key={entry.dataKey} className="flex items-center gap-2">
           <span
             className="h-2 w-2 rounded-full"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-slate-300">
+          <span className="text-premium-muted">
             {entry.name}: {entry.value}
           </span>
         </div>
@@ -59,33 +62,37 @@ function Charts({ result, comparison }) {
   }));
 
   return (
-    <section className="rounded-lg border border-white/10 bg-slate-950/80 p-5 shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur">
+    <section className={`${surfaceClass} p-5`}>
       <div>
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/80">
-          Analytics
-        </p>
-        <h2 className="mt-1 text-xl font-semibold text-white">
+        <p className="text-xs text-premium-muted">Analytics</p>
+        <h2 className="mt-1 text-xl font-semibold text-slate-50">
           Fault Patterns and Algorithm Trends
         </h2>
       </div>
 
       <div className="mt-6 grid gap-8 xl:grid-cols-2">
-        <div>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <div className="mb-4 text-sm font-semibold text-slate-200">
             Page Faults vs Algorithms
           </div>
-          <div className="h-[280px]">
+          <div className="premium-subsurface-soft h-[280px] rounded-2xl p-3">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={comparisonData} margin={{ top: 8, right: 8, left: -12, bottom: 4 }}>
-                <CartesianGrid stroke="rgba(148, 163, 184, 0.12)" vertical={false} />
+              <BarChart
+                data={comparisonData}
+                margin={{ top: 8, right: 8, left: -12, bottom: 4 }}
+              >
+                <CartesianGrid
+                  stroke="rgba(255,255,255,0.07)"
+                  vertical={false}
+                />
                 <XAxis
                   dataKey="algorithm"
-                  tick={{ fill: "#cbd5e1", fontSize: 12 }}
+                  tick={{ fill: "#cad5e5", fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  tick={{ fill: "#8c9aad", fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -101,24 +108,34 @@ function Charts({ result, comparison }) {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.06 }}
+        >
           <div className="mb-4 text-sm font-semibold text-slate-200">
             Step vs Fault Accumulation
           </div>
-          <div className="h-[280px]">
+          <div className="premium-subsurface-soft h-[280px] rounded-2xl p-3">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={timelineData} margin={{ top: 8, right: 8, left: -12, bottom: 4 }}>
-                <CartesianGrid stroke="rgba(148, 163, 184, 0.12)" vertical={false} />
+              <LineChart
+                data={timelineData}
+                margin={{ top: 8, right: 8, left: -12, bottom: 4 }}
+              >
+                <CartesianGrid
+                  stroke="rgba(255,255,255,0.07)"
+                  vertical={false}
+                />
                 <XAxis
                   dataKey="step"
-                  tick={{ fill: "#cbd5e1", fontSize: 12 }}
+                  tick={{ fill: "#cad5e5", fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  tick={{ fill: "#8c9aad", fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -143,7 +160,7 @@ function Charts({ result, comparison }) {
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
